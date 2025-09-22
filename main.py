@@ -62,7 +62,7 @@ def inference_video(detection_model, attribute_model, liveness_model, video_sour
             out.write(frame)
 
                 # Resize về size cố định 1920x1080 để hiển thị
-        display_frame = cv2.resize(frame, (1920, 1080))
+        display_frame = cv2.resize(frame, (1520, 1080))
         cv2.imshow("FaceDetection", display_frame)
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
@@ -81,6 +81,16 @@ def process_frame(detection_model, attribute_model, liveness_model, frame):
         *bbox, conf_score = boxes
         gender, age = attribute_model.get(frame, bbox)
         liveness = liveness_model.get(frame, bbox)
+
+        print(
+            f"[INFO] Face detected | "
+            f"BBox: {bbox} | Confidence: {conf_score:.2f} | "
+            f"Gender: {'Male' if gender == 1 else 'Female'} | "
+            f"Age: {age} | "
+            f"Liveness: {liveness}"
+        )
+
+
         face = Face(kps=keypoints, bbox=bbox, age=age, gender=gender, liveness=liveness)
         draw_face_info(frame, face)
 
@@ -101,25 +111,25 @@ def main():
     parser.add_argument(
         '--detection-weights',
         type=str,
-        default=r"C:\Users\minhk\Downloads\output\det_500m.onnx",
+        default=r"D:\AIBOX\insightFace\resources\det_500m.onnx",
         help='Path to the detection model weights file'
     )
     parser.add_argument(
         '--attribute-weights',
         type=str,
-        default=r"C:\Users\minhk\Downloads\output\genderage.onnx",
+        default=r"D:\AIBOX\insightFace\resources\genderage.onnx",
         help='Path to the attribute model weights file'
     )
     parser.add_argument(
         '--liveness-weights',
         type=str,
-        default=r"C:\Users\minhk\Downloads\output\Liveness_80x80_MiniFASNetV1SE.onnx",
+        default=r"D:\AIBOX\insightFace\resources\Liveness_80x80_MiniFASNetV1SE.onnx",
         help='Path to the liveness model weights file'
     )
     parser.add_argument(
         '--source',
         type=str,
-        default=r"C:\Users\minhk\Downloads\output\2025-09-18_07-51-21_Cam5.mp4",
+        default=r"D:\AIBOX\insightFace\resources\2025-09-18_07-51-21_Cam5.mp4",
         help='Path to the input image or video file or camera index (0, 1, ...)'
     )
     parser.add_argument('--output', type=str, help='Path to save the output image or video')

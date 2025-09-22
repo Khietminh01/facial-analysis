@@ -1,17 +1,19 @@
 import cv2
 import numpy as np
 import onnxruntime
-from typing import Tuple
+from typing import Tuple, Optional
 
 __all__ = ["Liveness"]
 
 class Liveness:
-    def __init__(self, model_path: str) -> None:
+    def __init__(self, model_path: str, threshold: float = 0.5) -> None:
         """Liveness Detection Model
         Args:
             model_path (str): Path to .onnx file
+            threshold (float): Minimum probability to accept prediction
         """
         self.model_path = model_path
+        self.threshold = threshold
         self._initialize_model(model_path)
 
     def _initialize_model(self, model_path: str):
@@ -22,47 +24,52 @@ class Liveness:
             )
             metadata = self.session.get_inputs()[0]
             input_shape = metadata.shape  # [N, C, H, W]
-            self.input_size = tuple(input_shape[2:4][::-1])  # (W, H)
+            self.input_size = (input_shape[3], input_shape[2])  # (W, H)
             self.input_names = [x.name for x in self.session.get_inputs()]
             self.output_names = [x.name for x in self.session.get_outputs()]
         except Exception as e:
             print(f"Failed to load liveness model: {e}")
             raise
 
-    def preprocess(self, image: np.ndarray, bbox: np.ndarray) -> np.ndarray:
-        """Crop + resize face region
-        Args:
-            image (np.ndarray): Input image (BGR)
-            bbox (np.ndarray): [x1, y1, x2, y2]
-        Returns:
-            np.ndarray: Preprocessed blob
-        """
+    def preprocess(self, image: np.ndarray, bbox: np.ndarray) -> Optional[np.ndarray]:
+        h, w, _ = image.shape
         x1, y1, x2, y2 = map(int, bbox)
+
+        bw, bh = x2 - x1, y2 - y1
+        dw, dh = int(bw * 0.3 / 2), int(bh * 0.3 / 2)
+        x1 = max(0, x1 - dw)
+        y1 = max(0, y1 - dh)
+        x2 = min(w, x2 + dw)
+        y2 = min(h, y2 + dh)
+
         face = image[y1:y2, x1:x2]
         if face.size == 0:
             return None
 
         face = cv2.resize(face, self.input_size)
-        face = cv2.cvtColor(face, cv2.COLOR_BGR2RGB).astype(np.float32)
-        face = face.transpose(2, 0, 1)  # HWC -> CHW
+        # >>> giữ nguyên BGR, KHÔNG chia 255 <<<
+        face = face.astype(np.float32).transpose(2, 0, 1)  # HWC -> CHW
         face = np.expand_dims(face, axis=0)  # NCHW
-        face /= 255.0  # normalize [0,1]
         return face
 
-    def postprocess(self, predictions: np.ndarray) -> int:
-        """Convert logits to class index
-        Args:
-            predictions (np.ndarray): [1, 3]
-        Returns:
-            int: liveness label (-1=NG, 0=Fake, 1=Real)
-        """
-        idx = int(np.argmax(predictions, axis=1)[0])
-        mapping = {0: -1, 1: 0, 2: 1}  # map theo yêu cầu của bạn
-        return mapping.get(idx, -1)
+    def postprocess(self, predictions: np.ndarray) -> Tuple[int, float]:
+        logits = predictions[0]
+        # >>> chuyển logits -> softmax probabilities <<<
+        exp_logits = np.exp(logits - np.max(logits))
+        probs = exp_logits / np.sum(exp_logits)
+
+        idx = int(np.argmax(probs))
+        conf = float(probs[idx])
+
+        mapping = {0: -1, 1: 0, 2: 1}
+        if conf < self.threshold:
+            return -1, conf
+        return mapping.get(idx, -1), conf
 
     def get(self, image: np.ndarray, bbox: np.ndarray) -> int:
         blob = self.preprocess(image, bbox)
         if blob is None:
             return -1
         preds = self.session.run(self.output_names, {self.input_names[0]: blob})[0]
-        return self.postprocess(preds)
+        label, conf = self.postprocess(preds)
+        return label

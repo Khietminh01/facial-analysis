@@ -44,13 +44,12 @@ class Face:
         return 'M' if self.gender == 1 else 'F'
     @property
     def liveness_str(self) -> Optional[str]:
-        """Maps liveness int (-1, 0, 1) to string label."""
         if self.liveness is None:
             return None
         mapping = {
-            0: "NG",     # Not Good / Error
-            1: "Real",   # live face
-            2: "Fake"    # fake
+            1: "NG",     # Not Good / Error
+            0: "Real",  
+            -1: "Fake"    
         }
         return mapping.get(self.liveness, "Unknown")
 
@@ -209,7 +208,7 @@ def put_text(frame, text, bbox):
     x1, y1, x2, y2 = map(int, bbox)
 
     # Slightly above the bounding box
-    location = (x1, y1 - 10)
+    location = (x1, y1 + 10)
 
     # Put the text on the frame
     cv2.putText(
@@ -217,7 +216,7 @@ def put_text(frame, text, bbox):
         text,
         location,
         fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-        fontScale=0.5,
+        fontScale=0.6,
         color=(255, 255, 255),
         thickness=1,
         lineType=cv2.LINE_AA
