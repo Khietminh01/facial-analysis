@@ -216,7 +216,7 @@ def put_text(frame, text, bbox):
         text,
         location,
         fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-        fontScale=0.6,
+        fontScale=1.0,
         color=(255, 255, 255),
         thickness=1,
         lineType=cv2.LINE_AA
@@ -229,6 +229,12 @@ def draw_face_info(frame: np.ndarray, face: Face) -> None:
         frame (np.ndarray): Input frame
         face (Face): Face cooridnates, keypoints and attributes
     """
-    draw_corners(frame, face.bbox)
+    if face.liveness == 0:  # Real
+        color = (0, 255, 0)  
+    else:
+        color = (0, 0, 255)  
+
+    draw_corners(frame, face.bbox, color=color)
     put_text(frame, f"{face.liveness_str} {face.sex} {face.age}", face.bbox)
-    draw_keypoints(frame, face.kps)
+
+    # draw_keypoints(frame, face.kps)

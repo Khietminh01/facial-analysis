@@ -2,7 +2,7 @@ import cv2
 import argparse
 import warnings
 import numpy as np
-
+import os
 from models import SCRFD, Attribute, Liveness
 from utils.helpers import Face, draw_face_info
 
@@ -31,12 +31,14 @@ def inference_image(detection_model, attribute_model, liveness_model, image_path
     process_frame(detection_model, attribute_model, liveness_model, frame)
     if save_output:
         cv2.imwrite(save_output, frame)
+        print(f"[INFO] Saved output image to {save_output}")
+
     cv2.imshow("FaceDetection", frame)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
 
-def inference_video(detection_model, attribute_model, liveness_model, video_source, save_output):
+def inference_video(detection_model, attribute_model, liveness_model, video_source, save_output, out_video=False):
     """Processes a video source for face detection, attributes, and liveness."""
     if video_source.isdigit() or video_source == '0':
         cap = cv2.VideoCapture(int(video_source))
@@ -48,9 +50,15 @@ def inference_video(detection_model, attribute_model, liveness_model, video_sour
         return
 
     out = None
-    if save_output:
-        fourcc = cv2.VideoWriter_fourcc(*'XVID')
-        out = cv2.VideoWriter(save_output, fourcc, 30.0, (int(cap.get(3)), int(cap.get(4))))
+    if out_video and save_output:
+        ext = os.path.splitext(save_output)[1].lower()
+        if ext in ['.mp4', '.m4v']:
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        else:
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        out = cv2.VideoWriter(save_output, fourcc, fps, (int(cap.get(3)), int(cap.get(4))))
+        print(f"[INFO] Writing output video to {save_output}")
 
     while True:
         ret, frame = cap.read()
@@ -58,18 +66,19 @@ def inference_video(detection_model, attribute_model, liveness_model, video_sour
             break
 
         process_frame(detection_model, attribute_model, liveness_model, frame)
-        if save_output:
+
+        if out is not None:
             out.write(frame)
 
-                # Resize về size cố định 1920x1080 để hiển thị
         display_frame = cv2.resize(frame, (1520, 1080))
         cv2.imshow("FaceDetection", display_frame)
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
     cap.release()
-    if save_output:
+    if out is not None:
         out.release()
+        print(f"[INFO] Saved output video to {save_output}")
     cv2.destroyAllWindows()
 
 
@@ -90,19 +99,34 @@ def process_frame(detection_model, attribute_model, liveness_model, frame):
             f"Liveness: {liveness}"
         )
 
-
         face = Face(kps=keypoints, bbox=bbox, age=age, gender=gender, liveness=liveness)
         draw_face_info(frame, face)
 
 
-def run_face_analysis(detection_weights, attribute_weights, liveness_weights, input_source, save_output=None):
+def run_face_analysis(detection_weights, attribute_weights, liveness_weights, input_source, save_output=None, out_video=False):
     """Runs face detection on the given input source."""
     detection_model, attribute_model, liveness_model = load_models(detection_weights, attribute_weights, liveness_weights)
+
+    # Nếu chưa truyền save_output thì tự tạo
+    if save_output is None:
+        if isinstance(input_source, str) and input_source.lower().endswith(('.jpg', '.png', '.jpeg')):
+            base, ext = os.path.splitext(input_source)
+            save_output = base + "_out" + ext
+        elif isinstance(input_source, str):
+            base, ext = os.path.splitext(input_source)
+            save_output = base + "_out" + ext   # giữ nguyên đuôi video
+        else:
+            save_output = "camera_out.avi"
+        print(f"[INFO] Auto output path: {save_output}")
+
+    # Nếu input là video thì tự bật out_video nếu chưa bật
+    if not input_source.lower().endswith(('.jpg', '.png', '.jpeg')):
+        out_video = True
 
     if isinstance(input_source, str) and input_source.lower().endswith(('.jpg', '.png', '.jpeg')):
         inference_image(detection_model, attribute_model, liveness_model, input_source, save_output)
     else:
-        inference_video(detection_model, attribute_model, liveness_model, input_source, save_output)
+        inference_video(detection_model, attribute_model, liveness_model, input_source, save_output, out_video)
 
 
 def main():
@@ -129,13 +153,19 @@ def main():
     parser.add_argument(
         '--source',
         type=str,
-        default=r"D:\AIBOX\insightFace\resources\2025-09-18_07-51-21_Cam5.mp4",
+        default=r"D:\AIBOX\insightFace\resources\DuongNQ_2D_Face_2.mp4",
         help='Path to the input image or video file or camera index (0, 1, ...)'
     )
-    parser.add_argument('--output', type=str, help='Path to save the output image or video')
+    parser.add_argument('--output', type=str, help='Path to save the output image or video (auto-generated if not provided)')
     args = parser.parse_args()
 
-    run_face_analysis(args.detection_weights, args.attribute_weights, args.liveness_weights, args.source, args.output)
+    run_face_analysis(
+        args.detection_weights,
+        args.attribute_weights,
+        args.liveness_weights,
+        args.source,
+        args.output
+    )
 
 
 if __name__ == "__main__":
