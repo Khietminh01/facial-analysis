@@ -207,28 +207,44 @@ class SCRFD:
 
         return keep
 
-
 if __name__ == "__main__":
-    detector = SCRFD(model_path="./weights/det_10g.onnx")
-    cap = cv2.VideoCapture(0)
+    detector = SCRFD(model_path=r"D:\AIBOX\insightFace\resources\det_500m.onnx")
 
-    while True:
-        ret, frame = cap.read()
-        if not cap.isOpened():
-            break
+    input_videos = r"D:\AIBOX\insightFace\resources\data_train\Data_training\Data_training\Nam_Duong_2509_2609_video\Nam_Duong_2509_2609_video\replay"        # folder chứa video
+    output_faces = r"D:\AIBOX\insightFace\resources\data_train\Data_training\Data_training\data_img_insightFace\data_img_insightFace\replay" # folder để lưu ảnh crop
+    os.makedirs(output_faces, exist_ok=True)
 
-        boxes_list, points_list = detector.detect(frame)
+    counter = 1  # để đặt tên file replay_001, replay_002...
 
-        for boxes, points in zip(boxes_list, points_list):
-            x1, y1, x2, y2, score = boxes.astype(np.int32)
-            draw_corners(frame, boxes)
+    # duyệt qua tất cả video trong folder
+    for vid_name in os.listdir(input_videos):
+        if not vid_name.lower().endswith((".mp4", ".avi", ".mov", ".mkv")):
+            continue  # bỏ qua file không phải video
 
-            if points_list is not None:
-                draw_keypoints(frame, points)
+        vid_path = os.path.join(input_videos, vid_name)
+        cap = cv2.VideoCapture(vid_path)
+        print(f"[INFO] Processing video: {vid_path}")
 
-        cv2.imshow("FaceDetection", frame)
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
 
-    cap.release()
-    cv2.destroyAllWindows()
+            boxes_list, points_list = detector.detect(frame)
+
+            for boxes in boxes_list:
+                x1, y1, x2, y2, score = boxes.astype(np.int32)
+
+                # crop mặt
+                face = frame[y1:y2, x1:x2]
+                if face.size == 0:
+                    continue
+
+                # lưu file
+                save_path = os.path.join(output_faces, f"replay_{counter:04d}.jpg")
+                cv2.imwrite(save_path, face)
+                counter += 1
+
+        cap.release()
+
+    print("[INFO] Done! All faces saved in:", output_faces)

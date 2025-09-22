@@ -2,11 +2,11 @@ import cv2
 import numpy as np
 import onnxruntime
 from typing import Tuple, Optional
-
+import time
 __all__ = ["Liveness"]
 
 class Liveness:
-    def __init__(self, model_path: str, threshold: float = 0.5) -> None:
+    def __init__(self, model_path: str, threshold: float = 0.6) -> None:
         """Liveness Detection Model
         Args:
             model_path (str): Path to .onnx file
@@ -36,7 +36,7 @@ class Liveness:
         x1, y1, x2, y2 = map(int, bbox)
 
         bw, bh = x2 - x1, y2 - y1
-        dw, dh = int(bw * 0.3 / 2), int(bh * 0.3 / 2)
+        dw, dh = int(bw * 1), int(bh * 1)
         x1 = max(0, x1 - dw)
         y1 = max(0, y1 - dh)
         x2 = min(w, x2 + dw)
@@ -61,7 +61,7 @@ class Liveness:
         idx = int(np.argmax(probs))
         conf = float(probs[idx])
 
-        mapping = {0: -1, 1: 0, 2: 1}
+        mapping = {0: -1, 1: 1, 2: -1}
         if conf < self.threshold:
             return -1, conf
         return mapping.get(idx, -1), conf
@@ -70,6 +70,16 @@ class Liveness:
         blob = self.preprocess(image, bbox)
         if blob is None:
             return -1
+        
+        # --- đo thời gian chạy inference ---
+        start_time = time.time()
         preds = self.session.run(self.output_names, {self.input_names[0]: blob})[0]
+        infer_time = (time.time() - start_time) * 1000  # ms
+        # ------------------------------------
+        
         label, conf = self.postprocess(preds)
-        return label
+        conf = int(round(conf * 100))  # 0.873 -> 87
+
+        print(f"Inference time: {infer_time:.2f} ms")  # hoặc lưu log tuỳ bạn
+        
+        return label, conf

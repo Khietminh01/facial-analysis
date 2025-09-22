@@ -69,7 +69,6 @@ def inference_video(detection_model, attribute_model, liveness_model, video_sour
 
         if out is not None:
             out.write(frame)
-
         display_frame = cv2.resize(frame, (1520, 1080))
         cv2.imshow("FaceDetection", display_frame)
         if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -89,6 +88,7 @@ def process_frame(detection_model, attribute_model, liveness_model, frame):
     for boxes, keypoints in zip(boxes_list, points_list):
         *bbox, conf_score = boxes
         gender, age = attribute_model.get(frame, bbox)
+
         liveness = liveness_model.get(frame, bbox)
 
         print(
@@ -147,13 +147,13 @@ def main():
     parser.add_argument(
         '--liveness-weights',
         type=str,
-        default=r"D:\AIBOX\insightFace\resources\Liveness_80x80_MiniFASNetV1SE.onnx",
+        default=r"D:\AIBOX\insightFace\resources\2.7_80x80_MiniFASNetV2.onnx",
         help='Path to the liveness model weights file'
     )
     parser.add_argument(
         '--source',
         type=str,
-        default=r"D:\AIBOX\insightFace\resources\DuongNQ_2D_Face_2.mp4",
+        default=r"D:\AIBOX\insightFace\resources\screen1.mp4",
         help='Path to the input image or video file or camera index (0, 1, ...)'
     )
     parser.add_argument('--output', type=str, help='Path to save the output image or video (auto-generated if not provided)')
@@ -170,3 +170,72 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # # --- Khởi tạo model ---
+    # detector = SCRFD(model_path=r"D:\AIBOX\insightFace\resources\det_500m.onnx")
+
+    # # --- Folder input/output ---
+    # input_videos = r"D:\AIBOX\insightFace\resources\archive\files"
+    # output_faces = input_videos
+    # os.makedirs(output_faces, exist_ok=True)
+
+    # # --- Đếm ảnh crop ---
+    # counter = 1
+
+    # # --- Duyệt qua tất cả video trong folder ---
+    # for vid_name in os.listdir(input_videos):
+    #     if not vid_name.lower().endswith((".mp4", ".avi", ".mov", ".mkv")):
+    #         continue  # bỏ qua file không phải video
+
+    #     vid_path = os.path.join(input_videos, vid_name)
+    #     print(f"[INFO] Processing video: {vid_path}")
+
+    #     cap = cv2.VideoCapture(vid_path)
+    #     frame_id = 0
+    #     frame_skip = 10
+    #     while True:
+    #         ret, frame = cap.read()
+    #         if not ret:
+    #             break
+    #         if frame_id % frame_skip != 0:
+    #             frame_id += 1
+    #             continue  # bỏ qua frame này
+
+    #         frame_id += 1
+    #         h, w = frame.shape[:2]
+    #         # --- Detect mặt ---
+    #         boxes_list, points_list = detector.detect(frame)
+
+    #         for boxes in boxes_list:
+    #             x1, y1, x2, y2, score = boxes.astype(np.int32)
+
+    #             x1 = max(0, int(x1 * 0.95))
+    #             y1 = max(0, int(y1 * 0.95))
+    #             x2 = min(w, int(x2 * 1.05))
+    #             y2 = min(h, int(y2 * 1.05))
+
+    #             bw, bh = x2 - x1, y2 - y1
+    #             side = max(bw, bh)
+
+    #             # Lấy tâm bbox
+    #             cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
+
+    #             # Tính lại x1, y1, x2, y2 cho vuông
+    #             x1_new = max(0, cx - side // 2)
+    #             y1_new = max(0, cy - side // 2)
+    #             x2_new = min(w, cx + side // 2)
+    #             y2_new = min(h, cy + side // 2)
+
+    #             # --- Crop mặt (chú ý đúng thứ tự: [row, col] = [y, x]) ---
+    #             face = frame[y1_new:y2_new, x1_new:x2_new]
+    #             if face.size == 0:
+    #                 continue
+
+    #             # Lưu file theo dạng replay_0001.jpg
+    #             vid_name_no_ext = os.path.splitext(vid_name)[0]  # Lấy tên video không có đuôi
+    #             # Lưu file theo dạng tên_video_0001.jpg
+    #             save_path = os.path.join(output_faces, f"{vid_name_no_ext}_{counter:04d}.jpg")
+    #             cv2.imwrite(save_path, face)
+    #             counter += 1
+
+    #     cap.release()
+    #     print(f"[INFO] Done video: {vid_name}")
