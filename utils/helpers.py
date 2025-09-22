@@ -44,14 +44,13 @@ class Face:
         return 'M' if self.gender == 1 else 'F'
     @property
     def liveness_str(self) -> Optional[str]:
-        if self.liveness is None:
+        if self.liveness[0] is None or self.liveness[1] is None:
             return None
         mapping = {
-            1: "NG",     # Not Good / Error
-            0: "Real",  
+            1: "Real",     # Not Good / Error 
             -1: "Fake"    
         }
-        return mapping.get(self.liveness, "Unknown")
+        return mapping.get(self.liveness[0], "Unknown"), self.liveness[1]
 
 def image_alignment(image, center, output_size, scale):
     T = SimilarityTransform(
@@ -229,12 +228,12 @@ def draw_face_info(frame: np.ndarray, face: Face) -> None:
         frame (np.ndarray): Input frame
         face (Face): Face cooridnates, keypoints and attributes
     """
-    if face.liveness == 0:  # Real
+
+    if face.liveness[0] == 1:  # Real
         color = (0, 255, 0)  
     else:
         color = (0, 0, 255)  
 
     draw_corners(frame, face.bbox, color=color)
-    put_text(frame, f"{face.liveness_str} {face.sex} {face.age}", face.bbox)
-
+    put_text(frame, f"{face.liveness_str[0]}:{face.liveness_str[1]}% {face.sex} {face.age}", face.bbox)
     # draw_keypoints(frame, face.kps)
