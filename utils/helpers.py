@@ -35,6 +35,16 @@ class Face:
     age: Optional[int] = None
     gender: Optional[int] = None
     liveness: Optional[int] = None
+    emotion: Optional[int] = None
+
+    @property
+    def emotion_str(self) -> Optional[str]:
+        if self.emotion is None:
+            return None
+        mapping = {
+            0: 'Anger', 1: 'Contempt', 2: 'Disgust', 3: 'Fear', 4: 'Happiness', 5: 'Neutral', 6: 'Sadness', 7: 'Surprise'
+        }
+        return mapping.get(self.emotion, "Unknown")
 
     @property
     def sex(self) -> Optional[str]:
@@ -44,13 +54,12 @@ class Face:
         return 'M' if self.gender == 1 else 'F'
     @property
     def liveness_str(self) -> Optional[str]:
-        """Maps liveness int (-1, 0, 1) to string label."""
         if self.liveness is None:
             return None
         mapping = {
-            0: "NG",     # Not Good / Error
-            1: "Real",   # live face
-            2: "Fake"    # fake
+            1: "NG",     # Not Good / Error
+            0: "Real",  
+            -1: "Fake"    
         }
         return mapping.get(self.liveness, "Unknown")
 
@@ -209,7 +218,7 @@ def put_text(frame, text, bbox):
     x1, y1, x2, y2 = map(int, bbox)
 
     # Slightly above the bounding box
-    location = (x1, y1 - 10)
+    location = (x1, y1 + 10)
 
     # Put the text on the frame
     cv2.putText(
@@ -217,7 +226,7 @@ def put_text(frame, text, bbox):
         text,
         location,
         fontFace=cv2.FONT_HERSHEY_SIMPLEX,
-        fontScale=0.5,
+        fontScale=0.6,
         color=(255, 255, 255),
         thickness=1,
         lineType=cv2.LINE_AA
@@ -230,6 +239,10 @@ def draw_face_info(frame: np.ndarray, face: Face) -> None:
         frame (np.ndarray): Input frame
         face (Face): Face cooridnates, keypoints and attributes
     """
-    draw_corners(frame, face.bbox)
-    put_text(frame, f"{face.liveness_str} {face.sex} {face.age}", face.bbox)
+    if face.liveness == 0:  # Real
+        color = (0, 255, 0)  
+    else:
+        color = (0, 0, 255)
+    draw_corners(frame, face.bbox, color=color)
+    put_text(frame, f"{face.liveness_str} {face.sex} {face.age} {face.emotion_str}", face.bbox)
     draw_keypoints(frame, face.kps)
