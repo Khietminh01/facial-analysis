@@ -45,7 +45,7 @@ class Face:
         if self.glass is None:
             return None
         mapping = {
-            0: "with_glass",
+            0: "glass",
             1: "no_glass"
         }
         return mapping.get(self.glass, "Unknown")

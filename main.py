@@ -56,14 +56,34 @@ def inference_video(detection_model, attribute_model, liveness_model, emotion_mo
 
     out = None
     if out_video and save_output:
-        ext = os.path.splitext(save_output)[1].lower()
+        '''ext = os.path.splitext(save_output)[1].lower()
         if ext in ['.mp4', '.m4v']:
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         else:
             fourcc = cv2.VideoWriter_fourcc(*'XVID')
         fps = cap.get(cv2.CAP_PROP_FPS)
-        out = cv2.VideoWriter(save_output, fourcc, fps, (int(cap.get(3)), int(cap.get(4))))
-        print(f"[INFO] Writing output video to {save_output}")
+        out = cv2.VideoWriter(save_output, fourcc, fps, (int(cap.get(3)), int(cap.get(4))))'''
+        ext = os.path.splitext(save_output)[1].lower()
+
+        # Lấy fps, fallback = 30 nếu không đọc được
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        if fps <= 0:
+            fps = 30
+
+        # Lấy width/height, đảm bảo số chẵn
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        width += width % 2
+        height += height % 2
+
+        # Chọn codec chuẩn web (H.264/AVC)
+        if ext in ['.mp4', '.m4v']:
+            fourcc = cv2.VideoWriter_fourcc(*'avc1')  # chuẩn web
+        else:
+            fourcc = cv2.VideoWriter_fourcc(*'XVID')  # fallback
+
+        out = cv2.VideoWriter(save_output, fourcc, fps, (width, height))
+        print(f"[INFO] Writing output video to {save_output} ({width}x{height} @ {fps}fps)")
 
     while True:
         ret, frame = cap.read()
@@ -191,7 +211,7 @@ def main():
     parser.add_argument(
         '--source',
         type=str,
-        default=r"C:\Users\ADMIN\Videos\Bản ghi màn hình\Quay màn hình 2025-09-24 005135.mp4",
+        default=r"C:\Users\ADMIN\Downloads\resources\resources\2025-09-18_07-51-21_Cam5.mp4",
         help='Path to the input image or video file or camera index (0, 1, ...)'
     )
     parser.add_argument('--output', type=str, help='Path to save the output image or video')
