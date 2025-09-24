@@ -36,6 +36,32 @@ class Face:
     gender: Optional[int] = None
     liveness: Optional[int] = None
     emotion: Optional[int] = None
+    mask: Optional[int] = None
+    glass: Optional[int] = None
+
+
+    @property
+    def glass_str(self) -> Optional[str]:
+        if self.glass is None:
+            return None
+        mapping = {
+            0: "with_glass",
+            1: "no_glass"
+        }
+        return mapping.get(self.glass, "Unknown")
+
+    @property
+    def mask_str(self) -> Optional[str]:
+        if self.mask is None:
+            return None
+        mapping = {
+            0: "incorect_mask",
+            1: "mask",
+            2: "no_mask"
+        }
+        return mapping.get(self.mask, "Unknown")
+
+
 
     @property
     def emotion_str(self) -> Optional[str]:
@@ -232,6 +258,23 @@ def put_text(frame, text, bbox):
         lineType=cv2.LINE_AA
     )
 
+def put_text(img, text, bbox, font=cv2.FONT_HERSHEY_SIMPLEX, 
+             font_scale=0.6, color=(0, 255, 0), thickness=2, line_spacing=20):
+    """
+    Vẽ text nhiều dòng tại vị trí bbox (góc trên trái).
+    Args:
+        img: ảnh gốc
+        text: string có thể chứa '\n'
+        bbox: [x1, y1, x2, y2]
+        font, font_scale, color, thickness: tham số của cv2.putText
+        line_spacing: khoảng cách giữa các dòng
+    """
+    x1, y1, x2, y2 = map(int, bbox)
+    lines = text.split("\n")
+    for i, line in enumerate(lines):
+        y = y1 - 10 + i * line_spacing   # vẽ phía trên bbox
+        cv2.putText(img, line, (x1, y), font, font_scale, color, thickness, cv2.LINE_AA)
+
 
 def draw_face_info(frame: np.ndarray, face: Face) -> None:
     """Draws face bounding box, keypoints, and attributes on the frame.
@@ -244,5 +287,10 @@ def draw_face_info(frame: np.ndarray, face: Face) -> None:
     else:
         color = (0, 0, 255)
     draw_corners(frame, face.bbox, color=color)
-    put_text(frame, f"{face.liveness_str} {face.sex} {face.age} {face.emotion_str}", face.bbox)
+    put_text(
+    frame,
+    f"{face.liveness_str} {face.sex} {face.age} {face.emotion_str}\n{face.mask_str} {face.glass_str}",
+    face.bbox
+)
+
     draw_keypoints(frame, face.kps)

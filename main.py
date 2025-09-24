@@ -5,33 +5,35 @@ import numpy as np
 import os
 import time
 
-from models import SCRFD, Attribute, Liveness, Emotion
+from models import SCRFD, Attribute, Liveness, Emotion, Mask, Glass
 from utils.helpers import Face, draw_face_info
 
 warnings.filterwarnings("ignore")
 
 
-def load_models(detection_model_path: str, attribute_model_path: str, liveness_model_path: str, emotion_model_path: str):
+def load_models(detection_model_path: str, attribute_model_path: str, liveness_model_path: str, emotion_model_path: str, mask_model_path: str, glass_model_path: str):
     """Loads the detection, attribute, emotions and liveness models."""
     try:
         detection_model = SCRFD(model_path=detection_model_path)
         attribute_model = Attribute(model_path=attribute_model_path)
         liveness_model = Liveness(model_path=liveness_model_path)
         emotion_model = Emotion(model_path=emotion_model_path)
+        mask_model = Mask(model_path=mask_model_path)
+        glass_model = Glass(model_path=glass_model_path)
     except Exception as e:
         print(f"Error loading models: {e}")
         raise
-    return detection_model, attribute_model, liveness_model, emotion_model
+    return detection_model, attribute_model, liveness_model, emotion_model, mask_model, glass_model
 
 
-def inference_image(detection_model, attribute_model, liveness_model, emotion_model, image_path, save_output):
+def inference_image(detection_model, attribute_model, liveness_model, emotion_model, mask_model, glass_model, image_path, save_output):
     """Processes a single image for face detection, attributes, and liveness."""
     frame = cv2.imread(image_path)
     if frame is None:
         print("Failed to load image")
         return
 
-    process_frame(detection_model, attribute_model, liveness_model, emotion_model, frame)
+    process_frame(detection_model, attribute_model, liveness_model, emotion_model, mask_model, glass_model, frame)
     if save_output:
         cv2.imwrite(save_output, frame)
         print(f"[INFO] Saved output image to {save_output}")
@@ -41,7 +43,7 @@ def inference_image(detection_model, attribute_model, liveness_model, emotion_mo
     cv2.destroyAllWindows()
 
 
-def inference_video(detection_model, attribute_model, liveness_model, emotion_model, video_source, save_output, out_video=False):
+def inference_video(detection_model, attribute_model, liveness_model, emotion_model, mask_model, glass_model, video_source, save_output, out_video=False):
     """Processes a video source for face detection, attributes, and liveness."""
     if video_source.isdigit() or video_source == '0':
         cap = cv2.VideoCapture(int(video_source))
@@ -68,7 +70,7 @@ def inference_video(detection_model, attribute_model, liveness_model, emotion_mo
         if not ret:
             break
 
-        process_frame(detection_model, attribute_model, liveness_model, emotion_model, frame)
+        process_frame(detection_model, attribute_model, liveness_model, emotion_model, mask_model, glass_model, frame)
         
         if out is not None:
             out.write(frame)
@@ -87,7 +89,7 @@ def inference_video(detection_model, attribute_model, liveness_model, emotion_mo
     cv2.destroyAllWindows()
 
 
-def process_frame(detection_model, attribute_model, liveness_model, emotion_model, frame):
+def process_frame(detection_model, attribute_model, liveness_model, emotion_model, mask_model, glass_model, frame):
     """Detects faces, attributes, emotions and liveness in a frame and draws the information."""
 
     start = time.time()   # bắt đầu đo
@@ -99,6 +101,8 @@ def process_frame(detection_model, attribute_model, liveness_model, emotion_mode
         gender, age = attribute_model.get(frame, bbox)
         liveness = liveness_model.get(frame, bbox)
         emotion_idx,_ = emotion_model.get(frame, bbox)
+        mask_idx,_ = mask_model.get(frame, bbox)
+        glass_idx = glass_model.get(frame, bbox)
 
         print(
             f"[INFO] Face detected | "
@@ -106,9 +110,11 @@ def process_frame(detection_model, attribute_model, liveness_model, emotion_mode
             f"Gender: {'Male' if gender == 1 else 'Female'} | "
             f"Age: {age} | "
             f"Liveness: {liveness} | "
-            f"Emotion: {emotion_idx}"
+            f"Emotion: {emotion_idx} |"
+            f"Mask: {mask_idx} | " 
+            f"Glass: {glass_idx}" 
         )
-        face = Face(kps=keypoints, bbox=bbox, age=age, gender=gender, liveness=liveness, emotion=emotion_idx)
+        face = Face(kps=keypoints, bbox=bbox, age=age, gender=gender, liveness=liveness, emotion=emotion_idx, mask=mask_idx, glass=glass_idx)
         draw_face_info(frame, face)
 
         end = time.time()   # kết thúc đo
@@ -117,9 +123,9 @@ def process_frame(detection_model, attribute_model, liveness_model, emotion_mode
         print(f"[PERF] Frame time: {elapsed:.2f} ms | {fps:.2f} FPS")
 
 
-def run_face_analysis(detection_weights, attribute_weights, liveness_weights, emotion_weights, input_source, save_output=None, out_video=False):
+def run_face_analysis(detection_weights, attribute_weights, liveness_weights, emotion_weights, mask_weights, glass_weights, input_source, save_output=None, out_video=False):
     """Runs face detection on the given input source."""
-    detection_model, attribute_model, liveness_model, emotion_model = load_models(detection_weights, attribute_weights, liveness_weights, emotion_weights)
+    detection_model, attribute_model, liveness_model, emotion_model, mask_model, glass_model = load_models(detection_weights, attribute_weights, liveness_weights, emotion_weights, mask_weights, glass_weights)
 
     # Nếu chưa truyền save_output thì tự tạo
     if save_output is None:
@@ -138,9 +144,9 @@ def run_face_analysis(detection_weights, attribute_weights, liveness_weights, em
         out_video = True
 
     if isinstance(input_source, str) and input_source.lower().endswith(('.jpg', '.png', '.jpeg')):
-        inference_image(detection_model, attribute_model, liveness_model, emotion_model, input_source, save_output)
+        inference_image(detection_model, attribute_model, liveness_model, emotion_model, mask_model, glass_model, input_source, save_output)
     else:
-        inference_video(detection_model, attribute_model, liveness_model, emotion_model, input_source, save_output, out_video)
+        inference_video(detection_model, attribute_model, liveness_model, emotion_model, mask_model, glass_model, input_source, save_output, out_video)
 
 
 def main():
@@ -167,19 +173,31 @@ def main():
     parser.add_argument(
         '--emotion-weights',
         type=str,
-        default=r"C:\test\EmotiEffLib\models\affectnet_emotions\onnx\enet_b0_8_best_afew.onnx",
+        default=r"C:\Users\ADMIN\Downloads\resources\resources\enet_b0_8_best_afew_emotion.onnx",
         help='Path to the emotions model weights file'
+    )
+    parser.add_argument(
+        '--mask-weights',
+        type=str,
+        default=r"C:\Users\ADMIN\Downloads\resources\resources\mobilenetV2_224.onnx",
+        help='Path to the mask model weights file'
+    )
+    parser.add_argument(
+        '--glass-weights',
+        type=str,
+        default=r"C:\test\glasses_classifier.onnx",
+        help='Path to the glass model weights file'
     )
     parser.add_argument(
         '--source',
         type=str,
-        default=r"C:\Users\ADMIN\Downloads\resources\resources\2025-09-18_07-51-21_Cam5.mp4",
+        default=r"C:\Users\ADMIN\Videos\Bản ghi màn hình\Quay màn hình 2025-09-24 005135.mp4",
         help='Path to the input image or video file or camera index (0, 1, ...)'
     )
     parser.add_argument('--output', type=str, help='Path to save the output image or video')
     args = parser.parse_args()
 
-    run_face_analysis(args.detection_weights, args.attribute_weights, args.liveness_weights, args.emotion_weights, args.source, args.output)
+    run_face_analysis(args.detection_weights, args.attribute_weights, args.liveness_weights, args.emotion_weights, args.mask_weights, args.glass_weights, args.source, args.output)
 
 
 if __name__ == "__main__":
