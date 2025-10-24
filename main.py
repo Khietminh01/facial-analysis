@@ -239,3 +239,7 @@ if __name__ == "__main__":
 
     #     cap.release()
     #     print(f"[INFO] Done video: {vid_name}")
+    # print("[INFO] Finished! All faces saved in:", output_faces)
+    # Test git
+
+
